@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weekly Calendar</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- 顶部工具栏 -->
+  <header class="toolbar">
+    <div class="toolbar-left">
+      <button id="btn-prev-week" class="toolbar-btn" title="上一周" data-tooltip="Previous week (&#8592;)">&lsaquo;</button>
+      <button id="btn-today" class="toolbar-btn" title="今天" data-tooltip="Go to today">Today</button>
+      <button id="btn-next-week" class="toolbar-btn" title="下一周" data-tooltip="Next week (&#8594;)">&rsaquo;</button>
+    </div>
+    <h1 id="week-title" class="toolbar-title"><!-- 动态填充：如 "Mar 23 – Mar 29, 2026" --></h1>
+    <div class="toolbar-right">
+      <!-- Data transfer buttons -->
+      <button id="btn-import" class="toolbar-btn" title="从 JSON 文件导入日程" data-tooltip="Import from JSON file">Import</button>
+      <button id="btn-download" class="toolbar-btn" title="下载日程为 JSON 文件 (Ctrl+S)" data-tooltip="Download as JSON (Ctrl+S)">Download</button>
+      <button id="btn-export-txt" class="toolbar-btn" title="导出日程为 TXT 文本" data-tooltip="Export as TXT">Export TXT</button>
+    </div>
+  </header>
+
+  <!-- 日历主体 -->
+  <div class="calendar-container">
+
+    <!-- 日历头部：星期/日期列头 -->
+    <div class="calendar-header">
+      <div class="header-time-spacer"><!-- 与时间列对齐的占位 --></div>
+      <div class="header-day" data-day-index="0">
+        <span class="header-day-name">Mon</span>
+        <span class="header-day-date">3/23</span>
+      </div>
+      <div class="header-day" data-day-index="1">
+        <span class="header-day-name">Tue</span>
+        <span class="header-day-date">3/24</span>
+      </div>
+      <div class="header-day" data-day-index="2">
+        <span class="header-day-name">Wed</span>
+        <span class="header-day-date">3/25</span>
+      </div>
+      <div class="header-day" data-day-index="3">
+        <span class="header-day-name">Thu</span>
+        <span class="header-day-date">3/26</span>
+      </div>
+      <div class="header-day" data-day-index="4">
+        <span class="header-day-name">Fri</span>
+        <span class="header-day-date">3/27</span>
+      </div>
+      <div class="header-day" data-day-index="5">
+        <span class="header-day-name">Sat</span>
+        <span class="header-day-date">3/28</span>
+      </div>
+      <div class="header-day" data-day-index="6">
+        <span class="header-day-name">Sun</span>
+        <span class="header-day-date">3/29</span>
+      </div>
+    </div>
+
+    <!-- 滚动容器：时间列 + 7天列网格 -->
+    <div class="calendar-scroll" id="calendar-scroll">
+      <div class="calendar-grid">
+
+        <!-- 时间列 -->
+        <div class="time-column" id="time-column">
+          <!-- 动态生成 00:00 – 23:00 的时间标签 -->
+        </div>
+
+        <!-- 7 天列网格 -->
+        <div class="days-grid" id="days-grid">
+          <div class="day-column" data-day-index="0"></div>
+          <div class="day-column" data-day-index="1"></div>
+          <div class="day-column" data-day-index="2"></div>
+          <div class="day-column" data-day-index="3"></div>
+          <div class="day-column" data-day-index="4"></div>
+          <div class="day-column" data-day-index="5"></div>
+          <div class="day-column" data-day-index="6"></div>
+
+          <!-- 当前时间指示线 -->
+          <div class="current-time-line" id="current-time-line"></div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 日程创建/编辑 Modal -->
+  <div class="modal-overlay" id="event-modal-overlay">
+    <div class="modal" id="event-modal">
+      <div class="modal-header">
+        <h2 id="modal-title">New Event</h2>
+        <button class="modal-close-btn" id="modal-close-btn">&times;</button>
+      </div>
+      <form id="event-form">
+        <div class="form-group">
+          <label for="event-title-input">Title</label>
+          <input type="text" id="event-title-input" placeholder="Event title" required>
+        </div>
+        <div class="form-group">
+          <label for="event-description-input">Description</label>
+          <textarea id="event-description-input" placeholder="Optional description" rows="3"></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="event-date-input">Date</label>
+            <input type="date" id="event-date-input" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="event-start-input">Start</label>
+            <input type="time" id="event-start-input" step="1800" required>
+          </div>
+          <div class="form-group">
+            <label for="event-end-input">End</label>
+            <input type="time" id="event-end-input" step="1800" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Color</label>
+          <div class="color-picker" id="event-color-picker">
+            <button type="button" class="color-swatch selected" data-color="#4285f4" style="background:#4285f4;" title="Blue"></button>
+            <button type="button" class="color-swatch" data-color="#0b8043" style="background:#0b8043;" title="Green"></button>
+            <button type="button" class="color-swatch" data-color="#8e24aa" style="background:#8e24aa;" title="Purple"></button>
+            <button type="button" class="color-swatch" data-color="#d81b60" style="background:#d81b60;" title="Pink"></button>
+            <button type="button" class="color-swatch" data-color="#ef6c00" style="background:#ef6c00;" title="Orange"></button>
+            <button type="button" class="color-swatch" data-color="#f09300" style="background:#f09300;" title="Yellow"></button>
+            <button type="button" class="color-swatch" data-color="#039be5" style="background:#039be5;" title="Cyan"></button>
+            <button type="button" class="color-swatch" data-color="#616161" style="background:#616161;" title="Gray"></button>
+          </div>
+          <input type="hidden" id="event-color-input" value="#4285f4">
+        </div>
+        <div class="form-actions">
+          <button type="button" id="btn-delete-event" class="btn btn-danger" style="display:none;">Delete</button>
+          <div class="form-actions-right">
+            <button type="button" id="btn-cancel-event" class="btn btn-secondary">Cancel</button>
+            <button type="submit" id="btn-save-event" class="btn btn-primary">Save</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 导出 TXT Modal（选择日期范围） -->
+  <div class="modal-overlay" id="export-modal-overlay">
+    <div class="modal" id="export-modal">
+      <div class="modal-header">
+        <h2>Export to TXT</h2>
+        <button class="modal-close-btn" id="export-modal-close-btn">&times;</button>
+      </div>
+      <form id="export-form">
+        <p class="export-hint">Export events as a plain text file. Select a date range below.</p>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="export-start-date">Start Date</label>
+            <input type="date" id="export-start-date" required>
+          </div>
+          <div class="form-group">
+            <label for="export-end-date">End Date</label>
+            <input type="date" id="export-end-date" required>
+          </div>
+        </div>
+        <div class="form-actions">
+          <div class="form-actions-right">
+            <button type="button" id="btn-cancel-export" class="btn btn-secondary">Cancel</button>
+            <button type="submit" id="btn-confirm-export" class="btn btn-primary">Export</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Hidden file input for JSON import -->
+  <input type="file" id="file-import-input" accept=".json" style="display:none;">
+
+  <!-- Toast notification for status/error messages -->
+  <div id="toast" class="toast" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Calendar App – Test Suite</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    #test-ui { position: fixed; top: 0; right: 0; width: 480px; bottom: 0; background: #f5f5f5; z-index: 99999; overflow-y: auto; padding: 16px; font-family: system-ui, sans-serif; border-left: 2px solid #ccc; }
+    #test-ui h1 { margin: 0 0 8px; font-size: 20px; }
+    #summary { font-size: 15px; margin-bottom: 12px; padding: 8px 12px; border-radius: 6px; font-weight: 600; }
+    #summary.all-pass { background: #d4edda; color: #155724; }
+    #summary.has-fail { background: #f8d7da; color: #721c24; }
+    .grp { margin-bottom: 8px; }
+    .grp-title { font-weight: 700; font-size: 13px; cursor: pointer; user-select: none; }
+    .t { font-size: 11.5px; padding: 1px 0 1px 16px; font-family: 'SF Mono', Monaco, Consolas, monospace; }
+    .t.pass { color: #155724; } .t.fail { color: #c0392b; font-weight: 700; }
+    .t.pass::before { content: "\2713  "; } .t.fail::before { content: "\2717  "; }
+  </style>
+</head>
+<body>
+
+<!-- Test result panel (right side — leaves calendar visible on the left for real layout) -->
+<div id="test-ui"><h1>Calendar App Tests</h1><div id="summary">Running...</div><div id="results"></div></div>
+
+<!-- Full app DOM (visible on left for real layout so drag tests work) -->
+<header class="toolbar">
+  <div class="toolbar-left">
+    <button id="btn-prev-week" class="toolbar-btn">&lsaquo;</button>
+    <button id="btn-today" class="toolbar-btn">Today</button>
+    <button id="btn-next-week" class="toolbar-btn">&rsaquo;</button>
+  </div>
+  <h1 id="week-title" class="toolbar-title"></h1>
+  <div class="toolbar-right">
+    <button id="btn-import" class="toolbar-btn">Import</button>
+    <button id="btn-download" class="toolbar-btn">Download</button>
+    <button id="btn-export-txt" class="toolbar-btn">Export TXT</button>
+  </div>
+</header>
+<div class="calendar-container" style="margin-right: 490px;">
+  <div class="calendar-header">
+    <div class="header-time-spacer"></div>
+    <div class="header-day" data-day-index="0"><span class="header-day-name">Mon</span><span class="header-day-date"></span></div>
+    <div class="header-day" data-day-index="1"><span class="header-day-name">Tue</span><span class="header-day-date"></span></div>
+    <div class="header-day" data-day-index="2"><span class="header-day-name">Wed</span><span class="header-day-date"></span></div>
+    <div class="header-day" data-day-index="3"><span class="header-day-name">Thu</span><span class="header-day-date"></span></div>
+    <div class="header-day" data-day-index="4"><span class="header-day-name">Fri</span><span class="header-day-date"></span></div>
+    <div class="header-day" data-day-index="5"><span class="header-day-name">Sat</span><span class="header-day-date"></span></div>
+    <div class="header-day" data-day-index="6"><span class="header-day-name">Sun</span><span class="header-day-date"></span></div>
+  </div>
+  <div class="calendar-scroll" id="calendar-scroll">
+    <div class="calendar-grid">
+      <div class="time-column" id="time-column"></div>
+      <div class="days-grid" id="days-grid">
+        <div class="day-column" data-day-index="0"></div>
+        <div class="day-column" data-day-index="1"></div>
+        <div class="day-column" data-day-index="2"></div>
+        <div class="day-column" data-day-index="3"></div>
+        <div class="day-column" data-day-index="4"></div>
+        <div class="day-column" data-day-index="5"></div>
+        <div class="day-column" data-day-index="6"></div>
+        <div class="current-time-line" id="current-time-line"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="event-modal-overlay">
+  <div class="modal" id="event-modal">
+    <div class="modal-header"><h2 id="modal-title">New Event</h2><button class="modal-close-btn" id="modal-close-btn">&times;</button></div>
+    <form id="event-form">
+      <input type="text" id="event-title-input" required>
+      <textarea id="event-description-input"></textarea>
+      <input type="date" id="event-date-input" required>
+      <input type="time" id="event-start-input" step="1800" required>
+      <input type="time" id="event-end-input" step="1800" required>
+      <div class="color-picker" id="event-color-picker">
+        <button type="button" class="color-swatch selected" data-color="#4285f4" style="background:#4285f4;"></button>
+        <button type="button" class="color-swatch" data-color="#0b8043" style="background:#0b8043;"></button>
+        <button type="button" class="color-swatch" data-color="#8e24aa" style="background:#8e24aa;"></button>
+        <button type="button" class="color-swatch" data-color="#d81b60" style="background:#d81b60;"></button>
+        <button type="button" class="color-swatch" data-color="#ef6c00" style="background:#ef6c00;"></button>
+        <button type="button" class="color-swatch" data-color="#f09300" style="background:#f09300;"></button>
+        <button type="button" class="color-swatch" data-color="#039be5" style="background:#039be5;"></button>
+        <button type="button" class="color-swatch" data-color="#616161" style="background:#616161;"></button>
+      </div>
+      <input type="hidden" id="event-color-input" value="#4285f4">
+      <button type="button" id="btn-delete-event" style="display:none;">Delete</button>
+      <button type="button" id="btn-cancel-event">Cancel</button>
+      <button type="submit" id="btn-save-event">Save</button>
+    </form>
+  </div>
+</div>
+<div class="modal-overlay" id="export-modal-overlay">
+  <div class="modal" id="export-modal">
+    <div class="modal-header"><h2>Export to TXT</h2><button class="modal-close-btn" id="export-modal-close-btn">&times;</button></div>
+    <form id="export-form">
+      <input type="date" id="export-start-date" required>
+      <input type="date" id="export-end-date" required>
+      <button type="button" id="btn-cancel-export">Cancel</button>
+      <button type="submit" id="btn-confirm-export">Export</button>
+    </form>
+  </div>
+</div>
+<input type="file" id="file-import-input" accept=".json" style="display:none;">
+<div id="toast" class="toast"></div>
+
+<script src="app.js"></script>
+<script>
+'use strict';
+var _R = [], _G = '';
+function group(n) { _G = n; }
+function assert(c, m) { _R.push({ g: _G, m: m, p: !!c }); }
+function eq(a, b, m) { var p = a === b; _R.push({ g: _G, m: p ? m : m + ' (got ' + JSON.stringify(a) + ', want ' + JSON.stringify(b) + ')', p: p }); }
+function deepEq(a, b, m) { var p = JSON.stringify(a) === JSON.stringify(b); _R.push({ g: _G, m: p ? m : m + ' (got ' + JSON.stringify(a) + ')', p: p }); }
+
+// Use an isolated key so tests never touch real app data
+var REAL_STORAGE_KEY = STORAGE_KEY;
+var TEST_STORAGE_KEY = '__test__weekly-calendar-events';
+
+// Override the global STORAGE_KEY for all test execution
+STORAGE_KEY = TEST_STORAGE_KEY;
+
+function reset() {
+  events.length = 0;
+  currentWeekStart = getWeekStart(new Date());
+  currentEditingEventId = null;
+  if (pendingClickTimer) { clearTimeout(pendingClickTimer); pendingClickTimer = null; }
+  closeEventModal();
+  closeExportModal();
+  renderEvents();
+  localStorage.removeItem(TEST_STORAGE_KEY);
+}
+
+function createEvt(title, date, start, end, desc, color) {
+  DOM.eventTitleInput.value = title;
+  DOM.eventDescInput.value = desc || '';
+  DOM.eventDateInput.value = date;
+  DOM.eventStartInput.value = start;
+  DOM.eventEndInput.value = end;
+  DOM.eventColorInput.value = color || DEFAULT_EVENT_COLOR;
+  currentEditingEventId = null;
+  handleEventSave();
+}
+
+function runAllTests() {
+
+// ================================================================
+// DATE UTILITIES
+// ================================================================
+
+group('getWeekStart');
+(function() {
+  eq(getWeekStart(new Date(2026,2,25)).getDate(), 23, 'Wed->Mon 23');
+  eq(getWeekStart(new Date(2026,2,29)).getDate(), 23, 'Sun->Mon 23');
+  eq(getWeekStart(new Date(2026,2,23)).getDate(), 23, 'Mon stays');
+  var feb1 = getWeekStart(new Date(2026,1,1));
+  eq(feb1.getMonth(), 0, 'crosses to Jan');
+  eq(feb1.getDate(), 26, 'Jan 26');
+  var orig = new Date(2026,2,25,15,30);
+  getWeekStart(orig);
+  eq(orig.getDate(), 25, 'no mutation');
+  eq(getWeekStart(new Date(2026,2,23)).getHours(), 0, 'zeroes time');
+})();
+
+group('formatHeaderDate');
+(function() {
+  var f = formatHeaderDate(new Date(2026,2,23));
+  eq(f.dayName, 'Mon', 'Mon'); eq(f.dayDate, '3/23', '3/23');
+  eq(formatHeaderDate(new Date(2026,0,4)).dayName, 'Sun', 'Sun');
+  eq(formatHeaderDate(new Date(2026,0,4)).dayDate, '1/4', '1/4');
+})();
+
+group('addDays');
+(function() {
+  var d = new Date(2026,2,23);
+  eq(addDays(d,7).getDate(), 30, '+7');
+  eq(addDays(d,-1).getDate(), 22, '-1');
+  eq(d.getDate(), 23, 'no mutation');
+  eq(addDays(new Date(2026,2,30),3).getMonth(), 3, 'crosses month');
+  eq(addDays(new Date(2026,2,30),3).getDate(), 2, 'Apr 2');
+})();
+
+group('generateId');
+(function() {
+  var a=generateId(), b=generateId();
+  assert(typeof a==='string' && a.length>5, 'string');
+  assert(a!==b, 'unique');
+})();
+
+group('getDayIndexInCurrentWeek');
+(function() {
+  var s=new Date(currentWeekStart);
+  currentWeekStart=new Date(2026,2,23);
+  eq(getDayIndexInCurrentWeek(new Date(2026,2,23)), 0, 'Mon=0');
+  eq(getDayIndexInCurrentWeek(new Date(2026,2,25)), 2, 'Wed=2');
+  eq(getDayIndexInCurrentWeek(new Date(2026,2,29)), 6, 'Sun=6');
+  eq(getDayIndexInCurrentWeek(new Date(2026,2,30)), -1, 'next week=-1');
+  eq(getDayIndexInCurrentWeek(new Date(2026,2,22)), -1, 'prev week=-1');
+  currentWeekStart=s;
+})();
+
+group('formatDateToISO');
+(function() {
+  eq(formatDateToISO(new Date(2026,2,5)), '2026-03-05', 'pads');
+  eq(formatDateToISO(new Date(2026,11,25)), '2026-12-25', 'Dec');
+  eq(formatDateToISO(new Date(2026,0,1)), '2026-01-01', 'Jan 1');
+})();
+
+group('formatExportDate');
+(function() {
+  var r=formatExportDate('2026-03-23');
+  assert(r.includes('Mon')&&r.includes('Mar')&&r.includes('23')&&r.includes('2026'), 'Mon Mar 23 2026');
+  var r2=formatExportDate('2025-12-31');
+  assert(r2.includes('Wed')&&r2.includes('Dec')&&r2.includes('31')&&r2.includes('2025'), 'cross-year');
+  var r3=formatExportDate('2026-01-01');
+  assert(r3.includes('Thu')&&r3.includes('Jan'), 'Jan 1');
+})();
+
+// ================================================================
+// TIME UTILITIES
+// ================================================================
+
+group('timeStringToSlot');
+(function() {
+  eq(timeStringToSlot('00:00'),0,'0'); eq(timeStringToSlot('00:30'),1,'1');
+  eq(timeStringToSlot('09:00'),18,'18'); eq(timeStringToSlot('12:00'),24,'24');
+  eq(timeStringToSlot('23:30'),47,'47'); eq(timeStringToSlot('24:00'),48,'48');
+  eq(timeStringToSlot('09:15'),19,'9:15 rounds up'); eq(timeStringToSlot('09:14'),18,'9:14 rounds down');
+  eq(timeStringToSlot(''),0,'empty->0');
+})();
+
+group('slotToTimeString');
+(function() {
+  eq(slotToTimeString(0),'00:00','0'); eq(slotToTimeString(1),'00:30','1');
+  eq(slotToTimeString(18),'09:00','18'); eq(slotToTimeString(47),'23:30','47');
+  eq(slotToTimeString(48),'24:00','48');
+})();
+
+group('snapTimeTo30Min');
+(function() {
+  eq(snapTimeTo30Min('09:00',false),'09:00','exact');
+  eq(snapTimeTo30Min('09:17',false),'09:30','round up');
+  eq(snapTimeTo30Min('09:14',false),'09:00','round down');
+  eq(snapTimeTo30Min('23:50',true),'24:00','end near midnight');
+  eq(snapTimeTo30Min('23:50',false),'23:30','start clamped');
+  eq(snapTimeTo30Min('00:00',false),'00:00','midnight');
+  eq(snapTimeTo30Min('',false),'00:00','empty->00:00');
+})();
+
+group('yToSlot');
+(function() {
+  eq(yToSlot(0),0,'0'); eq(yToSlot(30),1,'30');
+  eq(yToSlot(15),1,'rounds up'); eq(yToSlot(14),0,'rounds down');
+  eq(yToSlot(1440),48,'max'); eq(yToSlot(-10),0,'neg clamped'); eq(yToSlot(9999),48,'huge clamped');
+})();
+
+// ================================================================
+// OVERLAP ALGORITHM
+// ================================================================
+
+group('assignOverlapColumns');
+(function() {
+  deepEq(assignOverlapColumns([]), [], 'empty');
+  var s=assignOverlapColumns([{startTime:'09:00',endTime:'10:00'}]);
+  eq(s[0].colIndex,0,'single col 0'); eq(s[0].totalCols,1,'single totalCols 1');
+
+  var no=assignOverlapColumns([{startTime:'09:00',endTime:'10:00'},{startTime:'11:00',endTime:'12:00'}]);
+  eq(no[0].totalCols,1,'non-overlap first'); eq(no[1].totalCols,1,'non-overlap second'); eq(no[1].colIndex,0,'reuses col');
+
+  var ov=assignOverlapColumns([{startTime:'09:00',endTime:'10:30'},{startTime:'10:00',endTime:'11:00'}]);
+  eq(ov[0].colIndex,0,'ov2 col 0'); eq(ov[1].colIndex,1,'ov2 col 1'); eq(ov[0].totalCols,2,'ov2 total');
+
+  var ov3=assignOverlapColumns([{startTime:'09:00',endTime:'11:00'},{startTime:'09:30',endTime:'10:30'},{startTime:'10:00',endTime:'12:00'}]);
+  assert(ov3[0].totalCols>=2, 'ov3 total>=2');
+
+  var inv=assignOverlapColumns([{startTime:'10:00',endTime:'09:00'}]);
+  assert(inv[0].endSlot>inv[0].startSlot, 'inverted fixed');
+
+  var mix=assignOverlapColumns([{startTime:'09:00',endTime:'10:00'},{startTime:'09:30',endTime:'10:30'},{startTime:'15:00',endTime:'16:00'}]);
+  eq(mix[0].totalCols,2,'mixed group 2'); eq(mix[2].totalCols,1,'mixed separate 1');
+})();
+
+// ================================================================
+// DATA VALIDATION & SERIALIZATION
+// ================================================================
+
+group('parseAndValidateJSON');
+(function() {
+  var r=parseAndValidateJSON('{"events":[{"title":"A","date":"2026-03-01","startTime":"09:00","endTime":"10:00"}]}');
+  assert(r!==null&&r.length===1, 'valid accepted'); eq(r[0].title,'A','title'); assert(r[0].id.length>0,'id generated');
+  eq(parseAndValidateJSON('bad'),null,'bad json');
+  eq(parseAndValidateJSON('{"foo":1}'),null,'no events');
+  eq(parseAndValidateJSON('{"events":"x"}'),null,'non-array');
+  eq(parseAndValidateJSON('{"events":[{"date":"2026-01-01","startTime":"09:00","endTime":"10:00"}]}'),null,'no title');
+  eq(parseAndValidateJSON('{"events":[{"title":"  ","date":"2026-01-01","startTime":"09:00","endTime":"10:00"}]}'),null,'blank title');
+  eq(parseAndValidateJSON('{"events":[{"title":"X","date":"bad","startTime":"09:00","endTime":"10:00"}]}'),null,'bad date');
+  eq(parseAndValidateJSON('{"events":[{"title":"X","date":"2026-01-01","startTime":"9am","endTime":"10:00"}]}'),null,'bad time');
+  eq(parseAndValidateJSON('{"events":[{"title":"X","date":"2026-01-01","startTime":"09:00","endTime":"10am"}]}'),null,'bad endTime');
+  eq(parseAndValidateJSON('{"events":[123]}'),null,'non-object event');
+  // Valid with all fields
+  var full=parseAndValidateJSON('{"events":[{"id":"custom","title":"B","description":"desc","date":"2026-06-15","startTime":"14:00","endTime":"15:30","color":"#ff0000"}]}');
+  eq(full[0].id,'custom','preserves id'); eq(full[0].color,'#ff0000','preserves color'); eq(full[0].description,'desc','preserves desc');
+})();
+
+group('serializeData');
+(function() {
+  reset();
+  events.push({id:'x',title:'T',description:'',date:'2026-03-01',startTime:'09:00',endTime:'10:00',color:'#4285f4'});
+  var j=JSON.parse(serializeData());
+  eq(j.events.length,1,'count'); eq(j.events[0].title,'T','title');
+  reset();
+})();
+
+group('loadEvents');
+(function() {
+  reset();
+  loadEvents([{id:'le1',title:'Loaded',description:'',date:'2026-03-25',startTime:'09:00',endTime:'10:00',color:'#4285f4'}]);
+  eq(events.length,1,'loaded'); eq(events[0].title,'Loaded','correct');
+  reset();
+})();
+
+// ================================================================
+// LOCALSTORAGE PERSISTENCE
+// ================================================================
+
+group('localStorage – save & load');
+(function() {
+  reset();
+  events.push({id:'ls1',title:'Persist',description:'D',date:'2026-03-01',startTime:'09:00',endTime:'10:00',color:'#4285f4'});
+  saveToLocalStorage();
+  var stored=JSON.parse(localStorage.getItem(STORAGE_KEY));
+  eq(stored.length,1,'saved'); eq(stored[0].title,'Persist','title');
+  events.length=0;
+  loadFromLocalStorage();
+  eq(events.length,1,'loaded back'); eq(events[0].description,'D','desc preserved');
+  reset();
+})();
+
+group('localStorage – corrupted data');
+(function() {
+  reset();
+  localStorage.setItem(STORAGE_KEY,'NOT JSON{{{');
+  loadFromLocalStorage();
+  eq(events.length,0,'bad json->empty');
+  localStorage.setItem(STORAGE_KEY,'"string"');
+  loadFromLocalStorage();
+  eq(events.length,0,'non-array->empty');
+  localStorage.setItem(STORAGE_KEY,'null');
+  loadFromLocalStorage();
+  eq(events.length,0,'null->empty');
+  reset();
+})();
+
+group('localStorage – auto-persist on CRUD');
+(function() {
+  reset();
+  currentWeekStart=new Date(2026,2,23); renderWeek();
+  createEvt('Auto','2026-03-25','09:00','10:00');
+  var s1=JSON.parse(localStorage.getItem(STORAGE_KEY));
+  eq(s1.length,1,'create persisted');
+
+  openEditModal(events[0].id);
+  DOM.eventTitleInput.value='Edited';
+  handleEventSave();
+  var s2=JSON.parse(localStorage.getItem(STORAGE_KEY));
+  eq(s2[0].title,'Edited','edit persisted');
+
+  handleEventDelete(events[0].id);
+  var s3=JSON.parse(localStorage.getItem(STORAGE_KEY));
+  eq(s3.length,0,'delete persisted');
+  reset();
+})();
+
+group('localStorage – reload simulation');
+(function() {
+  reset();
+  events.push({id:'sv',title:'Survivor',description:'',date:'2026-03-25',startTime:'09:00',endTime:'10:00',color:'#4285f4'});
+  saveToLocalStorage();
+  events.length=0;
+  loadFromLocalStorage();
+  eq(events.length,1,'survived'); eq(events[0].title,'Survivor','correct');
+  reset();
+})();
+
+// ================================================================
+// EVENT CRUD
+// ================================================================
+
+group('Event Create');
+(function() {
+  reset(); currentWeekStart=new Date(2026,2,23); renderWeek();
+  createEvt('Meet','2026-03-25','09:00','10:00','Sync','#0b8043');
+  eq(events.length,1,'added'); eq(events[0].title,'Meet','title'); eq(events[0].description,'Sync','desc');
+  eq(events[0].color,'#0b8043','color'); assert(events[0].id.length>0,'id');
+  assert(document.querySelectorAll('.event-block').length>=1,'rendered');
+  reset();
+})();
+
+group('Event Edit');
+(function() {
+  reset(); currentWeekStart=new Date(2026,2,23);
+  events.push({id:'e1',title:'Old',description:'OD',date:'2026-03-25',startTime:'09:00',endTime:'10:00',color:'#4285f4'});
+  renderEvents();
+  openEditModal('e1');
+  eq(currentEditingEventId,'e1','editing id'); eq(DOM.eventTitleInput.value,'Old','prefill');
+  eq(DOM.eventDescInput.value,'OD','desc prefill');
+  DOM.eventTitleInput.value='New';
+  handleEventSave();
+  eq(events[0].title,'New','updated'); eq(events.length,1,'no dup');
+  assert(!DOM.eventModalOverlay.classList.contains('active'),'closed');
+  reset();
+})();
+
+group('Event Delete');
+(function() {
+  reset();
+  events.push({id:'d1',title:'Del',description:'',date:'2026-03-25',startTime:'09:00',endTime:'10:00',color:'#4285f4'});
+  handleEventDelete('d1');
+  eq(events.length,0,'removed');
+  handleEventDelete('nonexistent');
+  eq(events.length,0,'no-op');
+  reset();
+})();
+
+group('Event Validation');
+(function() {
+  reset();
+  // Empty title
+  createEvt('','2026-03-25','09:00','10:00');
+  eq(events.length,0,'empty title blocked');
+  // Invalid date
+  DOM.eventTitleInput.value='X'; DOM.eventDateInput.value='bad'; DOM.eventStartInput.value='09:00'; DOM.eventEndInput.value='10:00';
+  DOM.eventColorInput.value=DEFAULT_EVENT_COLOR; currentEditingEventId=null;
+  handleEventSave();
+  eq(events.length,0,'invalid date blocked');
+  // Empty date
+  DOM.eventTitleInput.value='X'; DOM.eventDateInput.value='';
+  handleEventSave();
+  eq(events.length,0,'empty date blocked');
+  // end < start
+  createEvt('X','2026-03-25','10:00','09:00');
+  eq(events.length,0,'end<start blocked');
+  // end == start
+  createEvt('X','2026-03-25','10:00','10:00');
+  eq(events.length,0,'end=start blocked');
+  // Snap times
+  createEvt('X','2026-03-25','09:17','10:17');
+  eq(events.length,1,'snapped ok'); eq(events[0].startTime,'09:30','start snap'); eq(events[0].endTime,'10:30','end snap');
+  reset();
+})();
+
+// ================================================================
+// EVENT BLOCK CLICK
+// ================================================================
+
+group('Event Block Click -> Edit');
+(function() {
+  reset(); currentWeekStart=new Date(2026,2,23);
+  events.push({id:'ck1',title:'Click',description:'D',date:'2026-03-25',startTime:'09:00',endTime:'10:00',color:'#d81b60'});
+  renderEvents();
+  var block=document.querySelector('.event-block[data-event-id="ck1"]');
+  assert(block!==null,'block exists');
+  if(block){
+    block.click();
+    eq(currentEditingEventId,'ck1','editing id');
+    assert(DOM.eventModalOverlay.classList.contains('active'),'modal open');
+    eq(DOM.eventTitleInput.value,'Click','title prefill');
+    eq(DOM.eventDescInput.value,'D','desc prefill');
+    eq(DOM.btnDeleteEvent.style.display,'inline-block','delete visible');
+    closeEventModal();
+  }
+  reset();
+})();
+
+// ================================================================
+// MODAL
+// ================================================================
+
+group('Modal open/close');
+(function() {
+  reset();
+  assert(!DOM.eventModalOverlay.classList.contains('active'),'initially closed');
+  openEventModal();
+  assert(DOM.eventModalOverlay.classList.contains('active'),'opens');
+  closeEventModal();
+  assert(!DOM.eventModalOverlay.classList.contains('active'),'closes');
+  eq(currentEditingEventId,null,'cleared');
+  openExportModal(); assert(DOM.exportModalOverlay.classList.contains('active'),'export opens');
+  closeExportModal(); assert(!DOM.exportModalOverlay.classList.contains('active'),'export closes');
+})();
+
+group('isAnyModalOpen');
+(function() {
+  reset();
+  eq(isAnyModalOpen(),false,'none');
+  openEventModal(); eq(isAnyModalOpen(),true,'event'); closeEventModal();
+  openExportModal(); eq(isAnyModalOpen(),true,'export'); closeExportModal();
+})();
+
+group('Save button state');
+(function() {
+  openEventModal();
+  DOM.eventTitleInput.value=''; updateSaveButtonState();
+  eq(DOM.btnSaveEvent.disabled,true,'disabled empty');
+  DOM.eventTitleInput.value='X'; updateSaveButtonState();
+  eq(DOM.btnSaveEvent.disabled,false,'enabled');
+  DOM.eventTitleInput.value='  '; updateSaveButtonState();
+  eq(DOM.btnSaveEvent.disabled,true,'disabled whitespace');
+  closeEventModal();
+})();
+
+group('Color picker');
+(function() {
+  selectColorSwatch('#0b8043');
+  eq(DOM.eventColorInput.value,'#0b8043','sets value');
+  assert(DOM.eventColorPicker.querySelector('[data-color="#0b8043"]').classList.contains('selected'),'selected');
+  selectColorSwatch('#ffffff');
+  eq(DOM.eventColorInput.value,'#4285f4','unknown->fallback');
+  // Click swatch via event delegation
+  var purple=DOM.eventColorPicker.querySelector('[data-color="#8e24aa"]');
+  purple.click();
+  eq(DOM.eventColorInput.value,'#8e24aa','click delegation works');
+})();
+
+group('openModalFromDrag');
+(function() {
+  reset(); currentWeekStart=new Date(2026,2,23);
+  openModalFromDrag(2,18,20);
+  eq(DOM.eventDateInput.value,'2026-03-25','date'); eq(DOM.eventStartInput.value,'09:00','start');
+  eq(DOM.eventEndInput.value,'10:00','end'); eq(DOM.modalTitle.textContent,'New Event','title');
+  eq(DOM.btnDeleteEvent.style.display,'none','delete hidden');
+  assert(DOM.eventModalOverlay.classList.contains('active'),'open');
+  closeEventModal(); reset();
+})();
+
+// ================================================================
+// RENDERING
+// ================================================================
+
+group('renderTimeColumn');
+(function() {
+  var labels=DOM.timeColumn.querySelectorAll('.time-label');
+  eq(labels.length,24,'24 labels');
+  eq(labels[0].textContent,'00:00','first'); eq(labels[23].textContent,'23:00','last');
+  eq(labels[0].style.top,'0px','first at 0'); eq(labels[8].style.top,'480px','08:00 at 480px');
+})();
+
+group('renderGridLines');
+(function() {
+  var lines=DOM.dayColumns[0].querySelectorAll('.grid-line');
+  eq(lines.length,47,'47 lines');
+  eq(DOM.dayColumns[0].querySelectorAll('.grid-line.half-hour').length,24,'24 half-hour');
+  eq(DOM.dayColumns[0].querySelectorAll('.grid-line:not(.half-hour)').length,23,'23 full-hour');
+  // Verify positions
+  var firstLine=DOM.dayColumns[0].querySelector('.grid-line');
+  eq(firstLine.style.top,'30px','first line at 30px');
+})();
+
+group('renderWeek');
+(function() {
+  currentWeekStart=new Date(2026,2,23); renderWeek();
+  eq(DOM.headerDays[0].querySelector('.header-day-name').textContent,'Mon','Mon');
+  eq(DOM.headerDays[0].querySelector('.header-day-date').textContent,'3/23','3/23');
+  eq(DOM.headerDays[6].querySelector('.header-day-name').textContent,'Sun','Sun');
+  eq(DOM.headerDays[6].querySelector('.header-day-date').textContent,'3/29','3/29');
+  assert(DOM.weekTitle.textContent.includes('Mar 23'),'title start');
+  assert(DOM.weekTitle.textContent.includes('Mar 29'),'title end');
+  assert(DOM.weekTitle.textContent.includes('2026'),'title year');
+  currentWeekStart=getWeekStart(new Date()); renderWeek();
+})();
+
+group('renderEvents positions & overlap');
+(function() {
+  reset(); currentWeekStart=new Date(2026,2,23);
+  events.push(
+    {id:'r1',title:'A',description:'',date:'2026-03-25',startTime:'09:00',endTime:'10:30',color:'#4285f4'},
+    {id:'r2',title:'B',description:'',date:'2026-03-25',startTime:'10:00',endTime:'11:00',color:'#0b8043'},
+    {id:'r3',title:'C',description:'',date:'2026-03-26',startTime:'14:00',endTime:'15:00',color:'#d81b60'}
+  );
+  renderEvents();
+  eq(document.querySelectorAll('.event-block').length,3,'3 blocks');
+  eq(DOM.dayColumns[2].querySelectorAll('.event-block').length,2,'Wed 2 overlap');
+  eq(DOM.dayColumns[3].querySelectorAll('.event-block').length,1,'Thu 1');
+  var b1=DOM.dayColumns[2].querySelector('.event-block');
+  eq(b1.style.top,'540px','09:00=540px'); eq(b1.style.height,'90px','1.5h=90px');
+  assert(b1.style.width.includes('50'),'overlap ~50%');
+  // Thu event
+  var b3=DOM.dayColumns[3].querySelector('.event-block');
+  eq(b3.style.top,'840px','14:00=840px'); eq(b3.style.height,'60px','1h=60px');
+  eq(b3.style.width,'calc(100% - 4px)','single=full width');
+  reset();
+})();
+
+group('Full-day event');
+(function() {
+  reset(); currentWeekStart=new Date(2026,2,23);
+  events.push({id:'fd',title:'All',description:'',date:'2026-03-23',startTime:'00:00',endTime:'24:00',color:'#4285f4'});
+  renderEvents();
+  var b=DOM.dayColumns[0].querySelector('.event-block');
+  assert(b,'renders'); eq(b.style.top,'0px','top 0'); eq(b.style.height,'1440px','full');
+  reset();
+})();
+
+group('5 simultaneous events');
+(function() {
+  reset(); currentWeekStart=new Date(2026,2,23);
+  for(var i=0;i<5;i++) events.push({id:'m'+i,title:'E'+i,description:'',date:'2026-03-23',startTime:'09:00',endTime:'10:00',color:'#4285f4'});
+  renderEvents();
+  eq(DOM.dayColumns[0].querySelectorAll('.event-block').length,5,'5 blocks');
+  assert(DOM.dayColumns[0].querySelector('.event-block').style.width.includes('20'),'~20%');
+  reset();
+})();
+
+group('Events off-week not rendered');
+(function() {
+  reset(); currentWeekStart=new Date(2026,2,23);
+  events.push({id:'off',title:'X',description:'',date:'2026-04-15',startTime:'09:00',endTime:'10:00',color:'#4285f4'});
+  renderEvents();
+  eq(document.querySelectorAll('.event-block').length,0,'not rendered');
+  reset();
+})();
+
+group('renderEvents clears old blocks');
+(function() {
+  reset(); currentWeekStart=new Date(2026,2,23);
+  events.push({id:'c1',title:'A',description:'',date:'2026-03-23',startTime:'09:00',endTime:'10:00',color:'#4285f4'});
+  renderEvents();
+  eq(document.querySelectorAll('.event-block').length,1,'1 block');
+  events.length=0;
+  renderEvents();
+  eq(document.querySelectorAll('.event-block').length,0,'cleared');
+  reset();
+})();
+
+// ================================================================
+// TOOLTIP
+// ================================================================
+
+group('Tooltip show/hide');
+(function() {
+  reset(); currentWeekStart=new Date(2026,2,23);
+  events.push({id:'tt1',title:'Tip',description:'TipDesc',date:'2026-03-23',startTime:'09:00',endTime:'10:00',color:'#4285f4'});
+  renderEvents();
+  var block=DOM.dayColumns[0].querySelector('.event-block');
+  if(block) {
+    // Simulate mouseenter
+    var enterEvt=new MouseEvent('mouseenter',{clientX:100,clientY:100,bubbles:true});
+    block.dispatchEvent(enterEvt);
+    var tip=document.querySelector('.event-tooltip');
+    assert(tip!==null,'tooltip created');
+    if(tip) {
+      assert(tip.querySelector('.event-tooltip-title').textContent==='Tip','tip title');
+      assert(tip.querySelector('.event-tooltip-desc').textContent==='TipDesc','tip desc');
+    }
+    // Simulate mouseleave
+    block.dispatchEvent(new MouseEvent('mouseleave',{bubbles:true}));
+    eq(document.querySelectorAll('.event-tooltip').length,0,'tooltip removed');
+  }
+  // No description case
+  events[0].description='';
+  renderEvents();
+  block=DOM.dayColumns[0].querySelector('.event-block');
+  if(block){
+    block.dispatchEvent(new MouseEvent('mouseenter',{clientX:100,clientY:100,bubbles:true}));
+    var tip2=document.querySelector('.event-tooltip');
+    if(tip2) eq(tip2.querySelector('.event-tooltip-desc'),null,'no desc line when empty');
+    hideEventTooltip();
+  }
+  reset();
+})();
+
+// ================================================================
+// CURRENT TIME LINE
+// ================================================================
+
+group('updateCurrentTimeLine');
+(function() {
+  var saved=new Date(currentWeekStart);
+  // Set to current week so time line shows
+  currentWeekStart=getWeekStart(new Date());
+  updateCurrentTimeLine();
+  var line=DOM.currentTimeLine;
+  var now=new Date();
+  var dayIdx=getDayIndexInCurrentWeek(now);
+  if(dayIdx>=0) {
+    eq(line.style.display,'block','visible in current week');
+    var expectedTop=(now.getHours()*60+now.getMinutes())/30*30;
+    eq(line.style.top, expectedTop+'px', 'correct position');
+  }
+  // Set to a far-away week
+  currentWeekStart=new Date(2020,0,6);
+  updateCurrentTimeLine();
+  eq(line.style.display,'none','hidden when not current week');
+  currentWeekStart=saved; renderWeek();
+})();
+
+// ================================================================
+// NAVIGATION
+// ================================================================
+
+group('Navigation buttons');
+(function() {
+  currentWeekStart=new Date(2026,2,23); renderWeek();
+  DOM.btnNextWeek.click();
+  eq(currentWeekStart.getDate(),30,'next');
+  DOM.btnPrevWeek.click();
+  eq(currentWeekStart.getDate(),23,'prev');
+  currentWeekStart=new Date(2020,0,6);
+  DOM.btnToday.click();
+  eq(currentWeekStart.getTime(),getWeekStart(new Date()).getTime(),'today');
+})();
+
+group('Cross-year week');
+(function() {
+  currentWeekStart=new Date(2025,11,29); renderWeek();
+  assert(DOM.weekTitle.textContent.includes('Dec 29'),'Dec 29');
+  assert(DOM.weekTitle.textContent.includes('Jan 4'),'Jan 4');
+  currentWeekStart=getWeekStart(new Date()); renderWeek();
+})();
+
+// ================================================================
+// KEYBOARD
+// ================================================================
+
+group('Keyboard – Arrows');
+(function() {
+  reset(); currentWeekStart=new Date(2026,2,23); renderWeek();
+  document.activeElement&&document.activeElement.blur();
+  document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));
+  eq(currentWeekStart.getDate(),30,'Right');
+  document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true}));
+  eq(currentWeekStart.getDate(),23,'Left');
+  openEventModal();
+  document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));
+  eq(currentWeekStart.getDate(),23,'blocked when modal');
+  closeEventModal(); reset();
+})();
+
+group('Keyboard – ESC');
+(function() {
+  openEventModal();
+  document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+  assert(!DOM.eventModalOverlay.classList.contains('active'),'closes event');
+  openExportModal();
+  document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+  assert(!DOM.exportModalOverlay.classList.contains('active'),'closes export');
+})();
+
+group('Keyboard – Ctrl+S');
+(function() {
+  document.dispatchEvent(new KeyboardEvent('keydown',{key:'s',ctrlKey:true,bubbles:true}));
+  assert(true,'no crash');
+})();
+
+// ================================================================
+// DRAG INTERACTION
+// ================================================================
+
+group('Drag – getRelativeY correctness');
+(function() {
+  // Functional test: getRelativeY should return clientY - gridRect.top
+  var gridRect=DOM.daysGrid.getBoundingClientRect();
+  var fakeEvt={clientY: gridRect.top+100};
+  eq(getRelativeY(fakeEvt),100,'returns clientY - gridRect.top');
+  var fakeEvt2={clientY: gridRect.top};
+  eq(getRelativeY(fakeEvt2),0,'at grid top = 0');
+})();
+
+group('Drag – cleanupDrag');
+(function() {
+  dragState.active=true; dragState.dayIndex=3; dragState.startSlot=18;
+  dragState.currentSlot=22; dragState.hasMoved=true;
+  cleanupDrag();
+  eq(dragState.active,false,'active'); eq(dragState.dayIndex,-1,'dayIndex');
+  eq(dragState.startSlot,-1,'startSlot'); eq(dragState.hasMoved,false,'hasMoved');
+})();
+
+group('Drag – blocked when modal open');
+(function() {
+  reset(); openEventModal();
+  DOM.daysGrid.dispatchEvent(new MouseEvent('mousedown',{button:0,clientX:500,clientY:300,bubbles:true}));
+  eq(dragState.active,false,'blocked');
+  closeEventModal();
+})();
+
+group('Drag – full mousedown->mousemove->mouseup');
+(function() {
+  reset(); currentWeekStart=new Date(2026,2,23); renderWeek();
+  var col0=DOM.dayColumns[0]; var rect=col0.getBoundingClientRect();
+  var gridRect=DOM.daysGrid.getBoundingClientRect();
+  if(rect.width<5) { assert(true,'SKIPPED (no layout)'); reset(); return; }
+  var x=rect.left+rect.width/2;
+  var yStart=gridRect.top+540; // slot 18 = 09:00
+  var yEnd=gridRect.top+600;   // slot 20 = 10:00
+
+  DOM.daysGrid.dispatchEvent(new MouseEvent('mousedown',{button:0,clientX:x,clientY:yStart,bubbles:true}));
+  eq(dragState.active,true,'started');
+  eq(dragState.dayIndex,0,'col 0');
+
+  document.dispatchEvent(new MouseEvent('mousemove',{clientX:x,clientY:yEnd,bubbles:true}));
+  eq(dragState.hasMoved,true,'moved');
+  assert(dragState.previewEl!==null,'preview created');
+  // Verify preview has time hint
+  if(dragState.previewEl) {
+    var hint=dragState.previewEl.querySelector('.drag-time-hint');
+    assert(hint!==null,'time hint element');
+    if(hint) assert(hint.textContent.length>0,'time hint has text');
+  }
+
+  document.dispatchEvent(new MouseEvent('mouseup',{clientX:x,clientY:yEnd,bubbles:true}));
+  eq(dragState.active,false,'ended');
+  assert(DOM.eventModalOverlay.classList.contains('active'),'modal opened');
+  eq(DOM.eventDateInput.value,'2026-03-23','date Mon');
+  closeEventModal(); reset();
+})();
+
+group('Drag – upward drag');
+(function() {
+  reset(); currentWeekStart=new Date(2026,2,23); renderWeek();
+  var col0=DOM.dayColumns[0]; var rect=col0.getBoundingClientRect();
+  var gridRect=DOM.daysGrid.getBoundingClientRect();
+  if(rect.width<5) { assert(true,'SKIPPED'); reset(); return; }
+  var x=rect.left+rect.width/2;
+
+  DOM.daysGrid.dispatchEvent(new MouseEvent('mousedown',{button:0,clientX:x,clientY:gridRect.top+600,bubbles:true}));
+  document.dispatchEvent(new MouseEvent('mousemove',{clientX:x,clientY:gridRect.top+540,bubbles:true}));
+  document.dispatchEvent(new MouseEvent('mouseup',{clientX:x,clientY:gridRect.top+540,bubbles:true}));
+
+  assert(DOM.eventModalOverlay.classList.contains('active'),'modal opened on upward drag');
+  // Start should be the smaller slot
+  var startSlot=timeStringToSlot(DOM.eventStartInput.value);
+  var endSlot=timeStringToSlot(DOM.eventEndInput.value);
+  assert(endSlot>startSlot,'start < end after upward drag');
+  closeEventModal(); reset();
+})();
+
+group('Drag – ignores event block click');
+(function() {
+  reset(); currentWeekStart=new Date(2026,2,23);
+  events.push({id:'ign',title:'Block',description:'',date:'2026-03-23',startTime:'09:00',endTime:'10:00',color:'#4285f4'});
+  renderEvents();
+  var block=DOM.dayColumns[0].querySelector('.event-block');
+  if(block) {
+    // Mousedown on event block should not start drag
+    var evt=new MouseEvent('mousedown',{button:0,clientX:100,clientY:100,bubbles:true});
+    // Dispatch on the block itself
+    block.dispatchEvent(evt);
+    eq(dragState.active,false,'drag not started on event block');
+  }
+  reset();
+})();
+
+// ================================================================
+// DOUBLE-CLICK
+// ================================================================
+
+group('Double-click create');
+(function() {
+  reset(); currentWeekStart=new Date(2026,2,23); renderWeek();
+  var col0=DOM.dayColumns[0]; var rect=col0.getBoundingClientRect();
+  var gridRect=DOM.daysGrid.getBoundingClientRect();
+  if(rect.width<5) { assert(true,'SKIPPED'); reset(); return; }
+  var x=rect.left+rect.width/2, y=gridRect.top+540;
+  if(pendingClickTimer){clearTimeout(pendingClickTimer);pendingClickTimer=null;}
+  DOM.daysGrid.dispatchEvent(new MouseEvent('dblclick',{clientX:x,clientY:y,bubbles:true}));
+  assert(DOM.eventModalOverlay.classList.contains('active'),'modal opened');
+  var ss=timeStringToSlot(DOM.eventStartInput.value), se=timeStringToSlot(DOM.eventEndInput.value);
+  eq(se-ss,1,'30-min slot');
+  closeEventModal(); reset();
+})();
+
+// ================================================================
+// EXPORT TXT
+// ================================================================
+
+group('Export – defaults');
+(function() {
+  reset(); openExportModalWithDefaults();
+  eq(DOM.exportEndDate.value,formatDateToISO(new Date()),'end=today');
+  assert(!DOM.exportEndDate.hasAttribute('max'),'no max');
+  assert(!DOM.exportStartDate.hasAttribute('max'),'no start max');
+  assert(DOM.exportModalOverlay.classList.contains('active'),'open');
+  closeExportModal();
+})();
+
+group('Export – validation');
+(function() {
+  reset(); openExportModal();
+
+  // Missing dates -> error toast
+  DOM.exportStartDate.value=''; DOM.exportEndDate.value='';
+  handleExportTxt();
+  assert(DOM.toast.textContent.includes('select both'),'missing dates shows error');
+
+  // Start > end -> error toast
+  DOM.exportStartDate.value='2026-03-10'; DOM.exportEndDate.value='2026-03-01';
+  handleExportTxt();
+  assert(DOM.toast.textContent.includes('cannot be later'),'start>end shows error');
+
+  // Future dates -> allowed (no error toast about future)
+  events.push({id:'fut',title:'Future',description:'',date:'2099-06-15',startTime:'09:00',endTime:'10:00',color:'#4285f4'});
+  DOM.exportStartDate.value='2099-01-01'; DOM.exportEndDate.value='2099-12-31';
+  // Mock download to prevent actual file creation
+  var origCE=document.createElement;
+  document.createElement=function(t){var e=origCE.call(document,t);if(t==='a'){e.click=function(){};}return e;};
+  handleExportTxt();
+  document.createElement=origCE;
+  assert(DOM.toast.textContent.includes('Exported 1'),'future dates exported ok');
+  events.length=0;
+
+  closeExportModal();
+})();
+
+group('Export – TXT download content');
+(function() {
+  reset();
+  events.push(
+    {id:'ex1',title:'AM',description:'Morning sess',date:'2026-03-01',startTime:'09:00',endTime:'10:00',color:'#4285f4'},
+    {id:'ex2',title:'PM',description:'',date:'2026-03-01',startTime:'14:00',endTime:'15:00',color:'#0b8043'},
+    {id:'ex3',title:'Next',description:'D',date:'2026-03-02',startTime:'11:00',endTime:'12:00',color:'#d81b60'}
+  );
+  DOM.exportStartDate.value='2026-03-01'; DOM.exportEndDate.value='2026-03-02';
+
+  // Capture the text content directly by intercepting Blob constructor
+  var capturedText='', capturedName='';
+  var OrigBlob=window.Blob;
+  window.Blob=function(parts,opts){capturedText=parts.join('');return new OrigBlob(parts,opts);};
+  var origCE=document.createElement;
+  document.createElement=function(t){var e=origCE.call(document,t);if(t==='a'){e.click=function(){capturedName=e.download;};}return e;};
+
+  handleExportTxt();
+
+  window.Blob=OrigBlob;
+  document.createElement=origCE;
+
+  eq(capturedName,'calendar-export-20260301-20260302.txt','filename');
+  assert(capturedText.length>0,'content captured');
+  assert(capturedText.includes('AM'),'contains AM');
+  assert(capturedText.includes('PM'),'contains PM');
+  assert(capturedText.includes('Next'),'contains Next');
+  assert(capturedText.includes('Morning sess'),'contains description');
+  assert(capturedText.includes('09:00 - 10:00'),'contains time range');
+  assert(capturedText.indexOf('AM')<capturedText.indexOf('PM'),'AM before PM (sorted)');
+  assert(capturedText.includes('Total Events: 3'),'total count');
+  // Dates should be formatted
+  assert(capturedText.indexOf('Mar 1')!==-1||capturedText.indexOf('2026-03-01')!==-1,'contains date');
+  reset();
+})();
+
+group('Export – empty range');
+(function() {
+  reset();
+  DOM.exportStartDate.value='2026-01-01'; DOM.exportEndDate.value='2026-01-02';
+  openExportModal();
+  handleExportTxt();
+  assert(DOM.toast.textContent.includes('No events'),'empty range toast');
+  closeExportModal();
+})();
+
+// ================================================================
+// DOWNLOAD JSON
+// ================================================================
+
+group('handleDownload');
+(function() {
+  reset();
+  events.push({id:'dl1',title:'DL',description:'',date:'2026-03-01',startTime:'09:00',endTime:'10:00',color:'#4285f4'});
+  var triggered=false, href='';
+  var origCE=document.createElement;
+  document.createElement=function(t){var e=origCE.call(document,t);if(t==='a'){e.click=function(){triggered=true;href=e.href;};}return e;};
+  handleDownload();
+  document.createElement=origCE;
+  assert(triggered,'triggered');
+  assert(DOM.toast.textContent.includes('Downloaded'),'toast shown');
+  reset();
+})();
+
+// ================================================================
+// TOAST
+// ================================================================
+
+group('showToast');
+(function() {
+  showToast('Msg','info');
+  eq(DOM.toast.textContent,'Msg','text');
+  assert(DOM.toast.classList.contains('toast-visible'),'visible');
+  showToast('Err','error');
+  assert(DOM.toast.classList.contains('toast-error'),'error class');
+  assert(!DOM.toast.classList.contains('toast-success'),'no success on error');
+  showToast('Ok','success');
+  assert(DOM.toast.classList.contains('toast-success'),'success class');
+  assert(!DOM.toast.classList.contains('toast-error'),'no error on success');
+})();
+
+// ================================================================
+// SCROLL
+// ================================================================
+
+group('scrollToTime');
+(function() {
+  scrollToTime(0,0);
+  eq(DOM.calendarScroll.scrollTop,0,'0:00->0');
+
+  scrollToTime(8,0);
+  // (8*60/30)*30 - 60 = 420, but may be clamped by max scrollable distance
+  var maxScroll = DOM.calendarScroll.scrollHeight - DOM.calendarScroll.clientHeight;
+  var expected8 = Math.min(420, maxScroll);
+  eq(DOM.calendarScroll.scrollTop, expected8, '8:00->min(420,max)');
+
+  scrollToTime(12,30);
+  // (12.5*60/30)*30 - 60 = 690, clamped
+  var expected12 = Math.min(690, maxScroll);
+  eq(DOM.calendarScroll.scrollTop, expected12, '12:30->min(690,max)');
+
+  // Verify later time scrolls further than earlier time
+  scrollToTime(6,0);
+  var scroll6 = DOM.calendarScroll.scrollTop;
+  scrollToTime(18,0);
+  var scroll18 = DOM.calendarScroll.scrollTop;
+  assert(scroll18 >= scroll6, '18:00 scrolls >= 6:00');
+})();
+
+// ================================================================
+// CONSTANTS
+// ================================================================
+
+group('Constants');
+(function() {
+  eq(SLOT_HEIGHT,30,'SLOT_HEIGHT');
+  eq(TOTAL_SLOTS,48,'TOTAL_SLOTS');
+  eq(EDGE_SCROLL_ZONE,40,'EDGE_SCROLL_ZONE');
+  eq(DEFAULT_EVENT_COLOR,'#4285f4','DEFAULT_EVENT_COLOR');
+  eq(REAL_STORAGE_KEY,'weekly-calendar-events','STORAGE_KEY (original)');
+})();
+
+// ================================================================
+// EDGE CASES
+// ================================================================
+
+group('Empty events');
+(function() {
+  reset(); renderEvents();
+  eq(document.querySelectorAll('.event-block').length,0,'no blocks');
+})();
+
+group('openEditModal with invalid id');
+(function() {
+  reset();
+  openEditModal('nonexistent');
+  eq(currentEditingEventId,null,'no crash, editing id unchanged');
+  assert(!DOM.eventModalOverlay.classList.contains('active'),'modal stays closed');
+})();
+
+group('Multiple rapid creates');
+(function() {
+  reset(); currentWeekStart=new Date(2026,2,23); renderWeek();
+  for(var i=0;i<10;i++) createEvt('E'+i,'2026-03-23','09:00','10:00');
+  eq(events.length,10,'10 events created');
+  var ids=events.map(function(e){return e.id;});
+  var unique=new Set(ids);
+  eq(unique.size,10,'all unique ids');
+  reset();
+})();
+
+reset();
+}
+
+// ================================================================
+// RENDER RESULTS
+// ================================================================
+document.addEventListener('DOMContentLoaded',function(){
+  setTimeout(function(){
+    runAllTests();
+    // Restore real storage key and clean up test key
+    STORAGE_KEY = REAL_STORAGE_KEY;
+    localStorage.removeItem(TEST_STORAGE_KEY);
+    var c=document.getElementById('results'),sm=document.getElementById('summary');
+    var p=0,f=0,gs={};
+    _R.forEach(function(r){if(!gs[r.g])gs[r.g]=[];gs[r.g].push(r);});
+    Object.keys(gs).forEach(function(gn){
+      var d=document.createElement('div'); d.className='grp';
+      var fail=gs[gn].some(function(r){return!r.p;});
+      var t=document.createElement('div'); t.className='grp-title';
+      t.textContent=(fail?'\u2717 ':'\u2713 ')+gn+' ('+gs[gn].length+')';
+      t.style.color=fail?'#c0392b':'#27ae60'; d.appendChild(t);
+      var ts=document.createElement('div'); ts.style.display=fail?'block':'none';
+      t.onclick=function(){ts.style.display=ts.style.display==='none'?'block':'none';};
+      gs[gn].forEach(function(r){
+        var e=document.createElement('div'); e.className='t '+(r.p?'pass':'fail');
+        e.textContent=r.m; ts.appendChild(e); r.p?p++:f++;
+      });
+      d.appendChild(ts); c.appendChild(d);
+    });
+    sm.textContent=p+'/'+(p+f)+' passed'+(f?', '+f+' FAILED':' \u2013 All pass!');
+    sm.className=f?'has-fail':'all-pass';
+  },200);
+});
+</script>
+</body>
+</html>
